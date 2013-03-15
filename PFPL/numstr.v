@@ -1,5 +1,7 @@
 Module numstr.
 
+Require Import Omega.
+
 Inductive Ty :=
 	t_num | t_str.
 
@@ -161,11 +163,126 @@ Proof.
  assumption.
 Qed.
 
-Fixpoint env_app (e1 e2 : Env) :=
+Inductive MaxInEnv' : Var -> Env -> Prop :=
+	| mie_nil : MaxInEnv' 0 nil
+	| mie_cons_1 (v v' : Var) (t' : Ty) (e : Env) :
+			MaxInEnv' v e ->
+			v > v' ->
+			MaxInEnv' v (cons v' t' e)
+	| mie_cons_2 (v v' : Var) (t' : Ty) (e : Env) :
+			MaxInEnv' v e ->
+			v <= v' ->
+			MaxInEnv' v' (cons v' t' e).
+
+Lemma maxni_lt (v v' : Var) (e : Env) :
+	MaxInEnv' v e ->
+	v < v' ->
+	NotInEnv' v' e.
+Proof.
+ intros Hm.
+ revert v'.
+ induction Hm; intros.
+   constructor.
+  assert (v' <> v'0) by omega.
+  apply (IHHm v'0) in H0.
+  apply nie_cons.
+   apply not_eq_sym. assumption.
+  assumption.
+
+ assert (v'0 <> v') by omega.
+ assert (v < v'0) by omega.
+ apply (IHHm v'0) in H2.
+ apply nie_cons.
+  assumption.
+ assumption.
+Qed.
+
+
+Lemma maxni (v : Var) (e : Env) :
+	MaxInEnv' v e ->
+	NotInEnv' (S v) e.
+Proof.
+ intros Hm.
+ induction Hm.
+   constructor.
+  constructor.
+   destruct H.
+    omega.
+   omega.
+  assumption.
+ apply nie_cons. omega.
+ assert (v < S v') by omega.
+ apply (maxni_lt v (S v')).
+  assumption.
+ assumption.
+Qed.
+
+Lemma max_exists (e : Env) :
+	exists v, MaxInEnv' v e.
+Proof.
+ induction e.
+  exists 0. apply mie_nil.
+ destruct IHe as [v' Hm].
+ assert (v' > v \/ v' <= v) by omega.
+ destruct H.
+ exists v'. apply mie_cons_1; assumption.
+ exists v.  apply (mie_cons_2 v' v); assumption.
+Qed.
+
+Lemma fresh
+	(env : Env) :
+	exists v, NotInEnv' v env.
+Proof.
+ assert (exists v, MaxInEnv' v env) by apply max_exists.
+ destruct H.
+ exists (S x).
+ apply maxni.
+ assumption.
+Qed.
+
+Fixpoint env_app e1 e2 :=
 	match e1 with
 	| nil => e2
-	| cons v t e1' => cons v t (env_app e1' e2)
+	| cons x v e1' => cons x v (env_app e1' e2)
 	end.
+
+Lemma nat_eq_complete (m n : nat):
+ m <> n \/ m = n.
+Proof.
+ revert n.
+ induction m; intros.
+  destruct n; auto.
+ destruct n; auto.
+ assert (m <> n \/ m = n) by apply IHm.
+ destruct H; auto.
+Qed.
+
+
+Lemma env_app_end (e1 e2 : Env) x tx:
+	InEnv' x tx e1 ->
+	InEnv' x tx (env_app e1 e2).
+Proof.
+ intros Hie. revert e2.
+ induction Hie; intros; simpl.
+  apply ie_skip; auto.
+ apply ie_here.
+Qed.
+
+
+(* fucked *)
+
+Lemma env_insert (e1 e2 : Env) x t v tv :
+	TyRules (env_app e1 e2) x t ->
+	NotInEnv' v e1 ->
+	NotInEnv' v e2 ->
+	TyRules (env_app e1 (env_app (cons v tv nil) e2)) x t.
+Proof.
+ intros Hty.
+ revert v tv.
+ remember (env_app e1 e2) as eee.
+ induction Hty; intros v' tv' HNi1e HNie2; simpl; subst.
+        apply ty_env.
+
 
 Lemma env_rotate
 	(v1 v2 : Var) (t1 t2 : Ty) (env : Env)
@@ -207,7 +324,8 @@ Proof.
    subst.
    apply NotInEnv_rotate. assumption.
   auto.
- 
+ subst.
+
   auto.
  subst.
 
