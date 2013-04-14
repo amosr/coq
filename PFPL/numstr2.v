@@ -39,6 +39,12 @@ Fixpoint insert (env : Env) v tv :=
  | (x::xs), S v' => x  :: insert xs v' tv
  end.
 
+Lemma insert_0 env t :
+      insert env 0 t = t :: env.
+Proof.
+ destruct env; auto.
+Qed.
+
 Inductive TyRules (env : Env) : Exp -> Ty -> Prop :=
 	| ty_env (v : Var) (t : Ty): (InEnv v t env) -> TyRules env (var v) t
 	| ty_str (s : String) : TyRules env (str s) t_str
@@ -299,7 +305,7 @@ Qed.
 
 Lemma insert_pre (env : Env) i v ti tv :
       InEnv i ti (insert env v tv) ->
-      v < length env ->
+      v <= length env ->
       i < v ->
       InEnv i ti env.
 Proof.
@@ -323,10 +329,10 @@ Proof.
 Qed.
 
 
-Lemma substitution env x t t' e e':
+Lemma substitution_ix env x t t' e e':
       TyRules (insert env x t) e'             t' ->
       TyRules env              e              t  ->
-      x < length env                             ->
+      x <= length env                             ->
       TyRules env              (subst e' e x) t'.
 Proof.
  intros Ht' Ht Hlen.
@@ -377,3 +383,84 @@ Proof.
   apply weakening_cons. auto.
   simpl. omega.
 Qed.
+
+
+
+Lemma substitution env t t' e e':
+      TyRules (t :: env)       e'             t' ->
+      TyRules env              e              t  ->
+      TyRules env              (subst e' e 0) t'.
+Proof.
+ intros.
+ eapply substitution_ix.
+ rewrite insert_0. eassumption.
+ eassumption.
+ omega.
+Qed.
+
+
+
+Lemma InEnv_insert_n env v t:
+      v <= length env ->
+      InEnv v t (insert env v t).
+Proof.
+ unfold InEnv, getEnv.
+ revert v t.
+ induction env; intros.
+ destruct v; auto. simpl in H. omega.
+ 
+ destruct v; auto.
+ simpl in *.
+ apply IHenv. omega.
+Qed.
+
+Lemma decomposition env x t t' e e':
+      TyRules env              (subst e' e x) t' ->
+      TyRules env              e              t  ->
+      x <= length env                            ->
+      TyRules (insert env x t) e'             t'.
+Proof.
+ intros Hsub Ht Hlen.
+ revert env x t t' e Hsub Ht Hlen.
+ induction e'; intros.
+ simpl in Hsub.
+  apply ty_env.
+  destruct (eq_nat_dec x v).
+    assert (t = t'). eapply unicity_of_typing; eassumption.
+  subst. apply InEnv_insert_n. assumption.
+   destruct (lt_dec x v).
+   inversion Hsub.
+   assert (v = S v0) as HvSv0. destruct v. omega. subst. simpl. rewrite <- minus_n_O. reflexivity.
+   rewrite HvSv0.
+   apply get_insert_ge. rewrite H. assumption.
+   omega.
+  apply get_insert_lt. inversion Hsub. assumption. omega.
+
+ inversion Hsub. constructor.
+ inversion Hsub. constructor.
+
+ inversion Hsub. constructor.
+ eapply IHe'1; eassumption.
+ eapply IHe'2; eassumption.
+
+ inversion Hsub. constructor.
+ eapply IHe'1; eassumption.
+ eapply IHe'2; eassumption.
+
+ inversion Hsub. constructor.
+ eapply IHe'1; eassumption.
+ eapply IHe'2; eassumption.
+
+ inversion Hsub. constructor.
+ eapply IHe'; eassumption.
+
+ inversion Hsub.
+ eapply ty_lett.
+ eapply IHe'1; eassumption.
+ rewrite <- uninsert.
+ eapply IHe'2.
+ eassumption.
+ subst. apply weakening_cons. assumption.
+ simpl. omega.
+Qed.
+
