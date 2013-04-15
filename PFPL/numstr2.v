@@ -1,10 +1,8 @@
-Module numstr2.
 Require Import Omega.
 Require Import List.
 Import ListNotations.
 
 Require Import Coq.Arith.Bool_nat.
-
 
 Inductive Ty :=
 	t_num | t_str.
