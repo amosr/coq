@@ -291,3 +291,211 @@ Proof.
  intros Hbs. induction Hbs; try constructor.
  assumption.
 Qed.
+
+(* TODO define closed expressions *)
+(* these lemmas are "for all closed expressions"
+   but I don't know whether that's right;
+   the I.H. will contain not-closed expressions... *)
+
+
+Lemma tc_step__plus_tc_step e1 e2 v1:
+      transitive_closure Exp e_step e1 v1 ->
+      transitive_closure Exp e_step (plus e1 e2) (plus v1 e2).
+Proof.
+ intros H.
+ induction H.
+ apply tc_refl.
+ eapply tc_step.
+ eapply e_plus1.
+ eassumption.
+ assumption.
+Qed.
+
+
+Lemma tc_step__tc_step_plus2 e2 v1 v2:
+      val v1 ->
+      transitive_closure Exp e_step e2 v2 ->
+      transitive_closure Exp e_step (plus v1 e2) (plus v1 v2).
+Proof.
+ intros Hval H.
+ induction H.
+ apply tc_refl.
+ eapply tc_step.
+ eapply e_plus2; eassumption.
+ assumption.
+Qed.
+
+
+Lemma tc_step__tc_step_times1 e1 e2 v1:
+      transitive_closure Exp e_step e1 v1 ->
+      transitive_closure Exp e_step (times e1 e2) (times v1 e2).
+Proof.
+ intros H.
+ induction H.
+ apply tc_refl.
+ eapply tc_step.
+ eapply e_times1.
+ eassumption.
+ assumption.
+Qed.
+
+
+Lemma tc_step__tc_step_times2 e2 v1 v2:
+      val v1 ->
+      transitive_closure Exp e_step e2 v2 ->
+      transitive_closure Exp e_step (times v1 e2) (times v1 v2).
+Proof.
+ intros Hval H.
+ induction H.
+ apply tc_refl.
+ eapply tc_step.
+ eapply e_times2; eassumption.
+ assumption.
+Qed.
+
+
+Lemma tc_step__tc_step_let e1 v1 e2:
+      transitive_closure Exp e_step e1 v1 ->
+      transitive_closure Exp e_step (lett e1 e2) (lett v1 e2).
+ intros H.
+ induction H.
+ apply tc_refl.
+ eapply tc_step.
+ eapply e_let1.
+ eassumption.
+ assumption.
+Qed.
+
+
+(*Lemma tc_step__let' s s' e2 v2:
+      e_step s s' ->
+      val v2 ->
+      transitive_closure Exp e_step (subst e2 s 0) v2 ->
+      transitive_closure Exp e_step (subst e2 s' 0) v2.
+Proof.
+ intros Hs Hv Ht.
+ revert e2 v2 Ht Hv.
+ induction Hs; intros.
+
+
+ destruct e2.
+  destruct v. simpl in *.
+  inversion Ht. subst. inversion Hv.
+  inversion Hv; subst.
+  inversion Ht. inversion H1; subst.
+  assumption.
+ inversion H; subst. assumption.
+ inversion Ht; subst. inversion H3; subst. assumption.
+ 
+  
+
+Lemma tc_step__tc_step_letSub e1 v1 e2 v2:
+  transitive_closure Exp e_step e1 v1  ->
+  transitive_closure Exp e_step (subst e2 e1 0) v2 ->
+  transitive_closure Exp e_step (subst e2 v1 0) v2.
+Proof.
+ intros H1 H2.
+ revert e2 v2 H2.
+ induction H1; intros.
+ assumption.
+ apply IHtransitive_closure.
+ 
+ inversion H2.
+ subst.
+
+ intros Hval H.
+ remember (subst e2 v1 0) as SUB.
+ eapply tc_step.
+ induction H; subst.
+ eapply tc_step. eapply e_letSub. assumption.
+ apply tc_refl.
+
+ apply IHtransitive_closure.
+ 
+ subst.
+ eapply tc_step.
+ eapply e_let1.
+ eassumption.
+ assumption. 
+Qed. *)
+
+
+Lemma tc_concat e1 e2 e3:
+      transitive_closure Exp e_step e1 e2 ->
+      transitive_closure Exp e_step e2 e3 ->
+      transitive_closure Exp e_step e1 e3.
+Proof.
+ intros H1 H2.
+ revert e3 H2.
+ induction H1; intros.
+ assumption.
+ eapply tc_step.
+ eassumption.
+ apply IHtransitive_closure.
+ assumption.
+Qed.
+
+
+Lemma bigstep__tc_step e v t:
+      TyRules [] e t      ->
+      bigstep e v         ->
+      transitive_closure Exp e_step e v.
+Proof.
+ intros Hty Hbs. revert t Hty.
+ induction Hbs; intros;
+    try solve [apply tc_refl].
+
+ inversion Hty.
+ remember (IHHbs1 t_num H1) as T1.
+ inversion T1; subst.
+ remember (IHHbs2 t_num H3) as T2.
+ inversion T2; subst.
+  eapply tc_step. econstructor.
+  apply tc_refl.
+
+  assert (transitive_closure Exp e_step (plus (num n1) e2) (plus (num n1) (num n2))).
+   apply tc_step__tc_step_plus2. constructor.
+   eapply tc_step; eassumption.
+   eapply tc_concat.
+   eassumption.
+   eapply tc_step. eapply e_plus. apply tc_refl.
+
+  assert (transitive_closure Exp e_step (plus e1 e2) (plus (num n1) e2)).
+   apply tc_step__plus_tc_step.
+   eapply tc_step; eassumption.
+
+  assert (transitive_closure Exp e_step (plus (num n1) e2) (plus (num n1) (num n2))).
+   apply tc_step__tc_step_plus2. constructor.
+   eapply IHHbs2; eassumption.
+   eapply tc_concat. eassumption.
+   eapply tc_concat. eassumption.
+   eapply tc_step. eapply e_plus. apply tc_refl.
+  
+
+ eapply tc_concat.
+  apply tc_step__tc_step_times1. eapply IHHbs1; inversion Hty; eassumption.
+ eapply tc_concat.
+  apply tc_step__tc_step_times2. constructor.
+   eapply IHHbs2; inversion Hty; eassumption.
+ eapply tc_step.
+  eapply e_times.
+ apply tc_refl.
+
+ (* cat and len, so boring *)
+ admit. admit.
+ 
+ eapply tc_concat.
+  apply tc_step__tc_step_let. inversion Hty; eapply IHHbs1; eassumption.
+
+ eapply tc_step.
+  eapply e_letSub. eapply bigstep_val. eassumption.
+
+ inversion Hty.
+ remember (IHHbs1 tdef H1) as TDEF.
+ inversion TDEF.
+ 
+
+ inversion IHHbs1. subst. assumption.
+ subst.
+ 
+Qed.
