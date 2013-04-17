@@ -280,7 +280,7 @@ Inductive bigstep : Exp -> Exp -> Prop :=
             bigstep (len e1) (num (f_len n1))
   | bs_let e1 e2 v1 v2 :
             bigstep e1 v1 ->
-            bigstep (subst e2 e1 0) v2 ->
+            bigstep (subst e2 v1 0) v2 ->
             bigstep (lett e1 e2) v2.
 
 
@@ -377,6 +377,8 @@ Proof.
  revert e2 v2 Ht Hv.
  induction Hs; intros.
 
+ 
+
 
  destruct e2.
   destruct v. simpl in *.
@@ -386,15 +388,19 @@ Proof.
   assumption.
  inversion H; subst. assumption.
  inversion Ht; subst. inversion H3; subst. assumption.
- 
+ *)
   
 
-Lemma tc_step__tc_step_letSub e1 v1 e2 v2:
+(*Lemma tc_step__tc_step_letSub e1 v1 e2 v2:
   transitive_closure Exp e_step e1 v1  ->
   transitive_closure Exp e_step (subst e2 e1 0) v2 ->
   transitive_closure Exp e_step (subst e2 v1 0) v2.
 Proof.
  intros H1 H2.
+ remember (subst e2 e1 0) as SUB.
+ revert v1 H1.
+ induction H2; subst.
+
  revert e2 v2 H2.
  induction H1; intros.
  assumption.
@@ -435,21 +441,16 @@ Proof.
  assumption.
 Qed.
 
-
-Lemma bigstep__tc_step e v t:
-      TyRules [] e t      ->
+Lemma bigstep__tc_step e v:
       bigstep e v         ->
       transitive_closure Exp e_step e v.
 Proof.
- intros Hty Hbs. revert t Hty.
+ intros Hbs.
  induction Hbs; intros;
     try solve [apply tc_refl].
 
- inversion Hty.
- remember (IHHbs1 t_num H1) as T1.
- inversion T1; subst.
- remember (IHHbs2 t_num H3) as T2.
- inversion T2; subst.
+ inversion IHHbs1; subst.
+ inversion IHHbs2; subst.
   eapply tc_step. econstructor.
   apply tc_refl.
 
@@ -485,17 +486,36 @@ Proof.
  admit. admit.
  
  eapply tc_concat.
-  apply tc_step__tc_step_let. inversion Hty; eapply IHHbs1; eassumption.
+  apply tc_step__tc_step_let. eapply IHHbs1; eassumption.
 
  eapply tc_step.
   eapply e_letSub. eapply bigstep_val. eassumption.
 
- inversion Hty.
- remember (IHHbs1 tdef H1) as TDEF.
- inversion TDEF.
- 
-
- inversion IHHbs1. subst. assumption.
- subst.
- 
+ assumption.
 Qed.
+
+
+Lemma step__bigstep e e' v:
+      e_step e e' ->
+      bigstep e' v ->
+      bigstep e v.
+Proof.
+ intros He Hbs.
+ revert v Hbs.
+ induction He; intros; inversion Hbs; subst; repeat constructor; try apply IHHe; auto.
+
+ eapply bs_let. eapply IHHe. eassumption. assumption.
+ destruct eB; simpl in H1; try solve [inversion H1].
+ destruct v. destruct eD; inversion H1.
+ subst. simpl in Hbs.
+ eapply bs_let; eassumption.
+ simpl in H1; inversion H1.
+ eapply bs_let. destruct H; constructor. assumption.
+ eapply bs_let. destruct H; constructor. assumption.
+ eapply bs_let. destruct H; constructor. assumption.
+ eapply bs_let. destruct H; constructor. assumption.
+ eapply bs_let. destruct H; constructor. assumption.
+ eapply bs_let. destruct H; constructor. assumption.
+ eapply bs_let. destruct H; constructor. assumption.
+Qed. 
+
