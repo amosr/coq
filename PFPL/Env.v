@@ -186,3 +186,25 @@ Proof.
  apply IHenv. omega.
 Qed.
 
+
+Lemma not_InEnv_nil {A} v (t : A):
+      InEnv v t [] -> False.
+Proof.
+ unfold InEnv.
+ intros.
+ destruct v; inversion H.
+Qed.
+ 
+
+Definition raise' (a b v : nat) :=
+ if   ge_dec v b
+ then a + v
+ else v.
+
+Definition subst' {A} (v v' : Var) (f : Var -> A) (r : A) :=
+ if   eq_nat_dec v v'
+ then r
+ else if lt_dec v v'
+ then f (v' - 1)
+ else f v'.
+
