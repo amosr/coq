@@ -1,3 +1,5 @@
+(* Simply typed lambda calculus *)
+
 Require Import Env.
 Require Import TransitiveClosure.
 
@@ -98,11 +100,6 @@ Fixpoint subst (e e' : Exp) (v : Var) :=
  | lambda t x => lambda t (subst x (raise e' 1 0) (S v))
  | app    f x => app (subst f e' v) (subst x e' v)
  end.
-
-Lemma minus_n_1 v:
-      S v - 1 = v.
- simpl. rewrite minus_n_O. reflexivity.
-Qed.
 
 Lemma substitution_ix env x t t' e e':
       TYPE (insert env x t) e'             t' ->

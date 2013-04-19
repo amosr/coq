@@ -122,6 +122,12 @@ Proof.
 Qed.
 
 
+Lemma minus_n_1 v:
+      S v - 1 = v.
+ simpl. rewrite minus_n_O. reflexivity.
+Qed.
+
+
 
 Lemma insert_minus1 {A} (env : Env A) i v ti tv :
       InEnv (S i) ti (insert env v tv) ->
@@ -141,6 +147,17 @@ Proof.
  simpl in Hin.
  eassumption.
  omega.
+Qed.
+
+Lemma insert_minus {A} (env : Env A) i v ti tv :
+      InEnv i ti (insert env v tv) ->
+      i > v ->
+      InEnv (i-1) ti env.
+Proof.
+ intros. destruct i. omega.
+ rewrite minus_n_1.
+ eapply insert_minus1;
+ eassumption.
 Qed.
 
 
@@ -194,7 +211,22 @@ Proof.
  intros.
  destruct v; inversion H.
 Qed.
- 
+
+
+Lemma InEnv__length {A} v (t : A) env:
+      InEnv v t env ->
+      v < length env.
+Proof.
+ unfold InEnv.
+ intros Hie.
+ revert v t Hie.
+ induction env; intros.
+  destruct v; inversion Hie.
+ destruct v; simpl in *.
+  omega.
+ apply IHenv in Hie.
+  omega.
+Qed. 
 
 Definition raise' (a b v : nat) :=
  if   ge_dec v b
@@ -208,3 +240,21 @@ Definition subst' {A} (v v' : Var) (f : Var -> A) (r : A) :=
  then f (v' - 1)
  else f v'.
 
+
+Lemma subst_cases {E} x v {f : Var -> E} (e : E) P:
+      (x = v -> P e)               ->
+      (x < v -> v <> 0 -> P (f (v-1))) ->
+      (x > v -> P (f v)) ->
+      P (subst' x v f e).
+Proof.
+ intros.
+ unfold subst'.
+ destruct (eq_nat_dec x v).
+  apply X. assumption.
+ destruct (lt_dec x v).
+  apply X0. assumption.
+  omega.
+ 
+ apply X1. omega.
+Qed.
+  
