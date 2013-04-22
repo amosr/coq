@@ -359,6 +359,142 @@ Proof.
  assumption.
 Qed.
 
+Lemma val_or_not e:
+  val e \/ ~val e.
+Proof.
+ induction e;
+  try destruct IHe;
+  try solve [right; intros Hn; inversion Hn];
+  try solve [left; constructor].
+  
+  left. constructor. assumption.
+  right. intros Hn. inversion Hn.
+  subst. apply H in H1. assumption.
+Qed.
+
+
+Lemma preservation_open env e e' t:
+      TYPE env e t ->
+      e_step e e'  ->
+      TYPE env e' t.
+Proof.
+ intros Ht He.
+ revert t env Ht.
+ induction He; intros; inversion Ht; subst;
+ try econstructor; try eapply IHHe; try eassumption.
+
+ inversion H2; subst.
+ eapply substitution; eassumption.
+
+ eapply substitution.
+ eapply substitution.
+ eassumption.
+  simpl.
+  inversion H3.
+  constructor.
+   apply weakening_cons; assumption.
+   apply weakening_cons; assumption.
+
+   replace (t :: t_num :: t_num :: env) with (insert (t :: t_num :: env) 2 t_num)
+      by (destruct env; reflexivity).
+   apply weakening_insert; assumption.
+ inversion H3. assumption.
+Qed.
+
+
+Lemma tc_preservation env e e' t:
+      TYPE env e t ->
+      tc e e'  ->
+      TYPE env e' t.
+Proof.
+ intros Ht Htc.
+ induction Htc.
+  assumption.
+  apply IHHtc.
+  eapply preservation_open;
+  eassumption.
+Qed.
+
+(*
+Lemma total env e t:
+      TYPE env e t ->
+      exists e', tc e e' /\ ~exists e'', e_step e' e''.
+ intros Ht.
+ induction Ht.
+  exists (var v). split.
+   apply tc_refl.
+   intros Hnot.
+   destruct Hnot. inversion H0.
+  exists z. split.
+   apply tc_refl.
+   intros Hnot.
+   destruct Hnot. inversion H.
+
+  destruct IHHt.
+  destruct H.
+  exists (s x). split.
+   apply tc_s. assumption.
+   intros Hnot.
+   destruct Hnot.
+   inversion H1. subst.
+   apply H0.
+   exists n'. assumption.
+
+  destruct IHHt1 as [e1 H1]. destruct H1.
+  destruct IHHt2 as [e2 H2]. destruct H2.
+  destruct IHHt3 as [e3 H3]. destruct H3.
+
+  assert (val e1 \/ ~val e1) as HVorN by apply val_or_not.
+  destruct HVorN.
+
+  assert (TYPE env e1 t_num) as He1num by (eapply tc_preservation; eassumption).
+  apply (canon_num env e1) in He1num; try assumption.
+  destruct He1num.
+
+  eexists. split.
+  eapply tc_concat.
+  eapply tc_rec1. eassumption.
+
+Lemma total env e t:
+      TYPE env e t ->
+      exists e', tc e e' /\ (val e' \/ exists v' t', e' = var v' /\ InEnv v' t' env).
+Proof.
+ intros Ht.
+ induction Ht.
+  exists (var v). split.
+   apply tc_refl.
+   right. exists v, t. split; try assumption; reflexivity.
+
+  exists z. split.
+   apply tc_refl.
+   left. constructor.
+
+  destruct IHHt.
+  destruct H.
+  destruct H0.
+   exists (s x). split.
+    eapply tc_s. assumption.
+    left. constructor. assumption.
+
+   destruct H0. destruct H0.
+   destruct H0. subst.
+   
+
+ split.
+
+ remember [] as ENV.
+ induction Ht; subst.
+      apply not_InEnv_nil in H. destruct H.
+     exists z. simpl. split; constructor.
+    destruct IHHt. reflexivity. destruct H.
+    exists (s x).
+    simpl. split. eapply tc_s. assumption. constructor. assumption.
+   destruct IHHt1. reflexivity.
+   destruct IHHt2. reflexivity.
+   
+ 
+ 
+*)
 (*
 Lemma total e t:
       TYPE [] e t ->
