@@ -453,6 +453,18 @@ Proof.
   apply IHHm in H2. destruct H2.
 Qed.
 
+Lemma Match_determ s s' p e:
+      Match s p e -> Match s' p e ->
+      s = s'.
+Proof.
+ intros Hs Hs'.
+ revert s' Hs'.
+ induction Hs; intros; inversion Hs'; subst; try reflexivity.
+ erewrite IHHs1. erewrite IHHs2. reflexivity.
+ eassumption. eassumption.
+ erewrite IHHs. reflexivity. assumption.
+ erewrite IHHs. reflexivity. assumption.
+Qed.
 
 Inductive val : Exp -> Prop :=
  | v_l t b : val (lambda t b)
@@ -461,39 +473,174 @@ Inductive val : Exp -> Prop :=
  | v_inr p : val p -> val (inr p)
  | v_unitt : val unitt.
 
-Lemma t13_1 e t penv p :
-  TYPE [] e t ->
+Lemma t13_1 env e t penv p :
+  TYPE env e t ->
   val e ->
   DBLTACK penv p t ->
-  (exists s, Match s p e) \/ NoMatch p e.
+  (exists s, Match s p e /\ Forall2 (TYPE env) s penv) \/ NoMatch p e.
 Proof.
  intros Ht Hv Hd. revert e Ht Hv.
  induction Hd; intros;
   inversion Hv; subst; inversion Ht; subst;
-  try solve [left; eexists; try econstructor; eauto];
+  try solve [left; eexists; split; try repeat econstructor; eauto];
   try solve [right; try econstructor; eauto].
 
  edestruct IHHd1; try eassumption.
  destruct H1.
+ destruct H1.
  edestruct IHHd2; try eassumption.
- destruct H2.
+ destruct H3.
+ destruct H3.
 
- left; eexists; econstructor; eauto.
+ left; eexists; split; try econstructor; eauto.
+ apply Forall2_app; assumption.
+
  right; apply nm_pair2; assumption.
  right; apply nm_pair1; assumption.
 
  edestruct IHHd; try eassumption.
  destruct H0.
- left; eexists; econstructor; eauto.
+ destruct H0.
+ left; eexists; split; try econstructor; eauto.
+
  right; econstructor; assumption.
 
  edestruct IHHd; try eassumption.
  destruct H0.
- left; eexists; econstructor; eauto.
+ destruct H0.
+ left; eexists; split; try econstructor; eauto.
  right; econstructor; assumption.
 Qed.
 
-Definition subst_all subs e := fold_right (fun p q => subst q p 0) e subs.
+Fixpoint subst_all subs e r :=
+ match subs with
+ | []    => e
+ | s::ss => (subst_all ss (subst e (raise s (r-1) 0) 0) (r-1))
+ end.
+
+(*Definition subst_all subs e := fold_right (fun p q => subst q p 0) e subs. *)
+
+Lemma Forall2_length {A B} P (a : list A) (b : list B):
+      Forall2 P a b ->
+      length a = length b.
+Proof.
+ intros Hf.
+ induction Hf; simpl; auto.
+Qed.
+
+
+Lemma substitution_all env subs e t tys:
+      Forall2 (TYPE env) subs tys ->
+      TYPE (tys++env) e t ->
+      TYPE (env) (subst_all subs e (length subs)) t.
+Proof.
+ intros Hf Ht.
+ revert e t Ht.
+ induction Hf; intros.
+  assumption.
+
+ simpl.
+ rewrite <- minus_n_O.
+  eapply IHHf.
+  eapply substitution.
+ eassumption.
+
+ revert l x y e t H Hf Ht IHHf.
+ induction l'; intros.
+  inversion Hf; subst.
+  simpl.
+   rewrite raise_0_id. assumption.
+
+  inversion Hf; subst.
+  simpl.
+  rewrite raise_S.
+  eapply weakening_cons.
+
+  eapply IHl'.
+ assumption.
+ assumption.
+ assert ((y :: a :: l') ++ env = insert ((y :: l') ++ env) 1 a) by (destruct l'; destruct env; reflexivity).
+ rewrite H0 in Ht.
+
+ eapply substitution_ix. eassumption.
+ eapply weakening_app. eassumption.
+ simpl. omega.
+
+ intros.
+ revert l0 x y e t e0 t0 x0 H Hf Ht IHHf H4 H3 Ht0.
+ induction l'; intros.
+  inversion H4; subst.
+  simpl. assumption.
+  inversion H4; subst.
+  simpl. rewrite <- minus_n_O.
+ eapply IHl'0; intros; try eassumption; eauto.
+
+ assert (length l0 = length l').
+  eapply Forall2_length. eassumption.
+ rewrite H1.
+ eapply weakening_app.
+ assumption.
+
+ assert ((a0 :: a :: l') ++ env = insert ((a0 :: l') ++ env) 1 a) by (destruct l'; destruct env;simpl; reflexivity).
+ rewrite H0. eapply weakening_insert. eassumption.
+ simpl. rewrite <- minus_n_O.
+ rewrite H0 in Ht.
+
+ eapply substitution_ix. eassumption.
+
+
+   inversion Hf.
+
+   rewrite raise_0_id. assumption.
+
+  inversion Hf; subst.
+  simpl.
+  rewrite raise_S.
+  eapply weakening_cons.
+
+  eapply IHl'.
+ assumption.
+ assumption.
+ assert ((y :: a :: l') ++ env = insert ((y :: l') ++ env) 1 a) by (destruct l'; destruct env; reflexivity).
+ rewrite H0 in Ht.
+
+ eapply substitution_ix. eassumption.
+ eapply weakening_app. eassumption.
+ simpl. omega.
+  
+ 
+  simpl. 
+  rewrite raise_S.
+  eapply weakening_cons.
+
+ 
+ assert (r = length l').
+  induction l'.
+ eapply weakening_cons.
+ 
+
+ induction subs; intros.
+  destruct tys.
+   assumption.
+   inversion Hf.
+  
+  destruct tys.
+   inversion Hf.
+  simpl.
+  inversion Hf; subst.
+
+  eapply substitution.
+  eapply weakening_cons.
+  eapply IHsubs.
+  eassumption.
+  
+
+  simpl. reflexivity.
+  eassumption.
+  simpl.
+  eapply weakening_cons.
+  eassumption.
+  .
 
 Inductive e_step: Exp -> Exp -> Prop :=
  | e_ap1 e1 e1' e2
@@ -574,7 +721,20 @@ Proof.
   inversion Ht; subst.
   assert (length sub = pattern_vars p) by (eapply Match_sub_length; eassumption).
   assert (length penv = pattern_vars p) by (eapply DBLTACK_env_len__pattern_vars; eassumption).
+
+
+ assert ((exists sub, Match sub p s /\ Forall2 (TYPE env) sub penv) \/ NoMatch p s).
+  eapply t13_1; eassumption.
+ destruct H3.
+ destruct H3.
+ destruct H3.
+
+ assert (x = sub).
+  eapply Match_determ; eassumption.
+
+ subst.
   
+
 (*  generalize dependent e.
   generalize dependent env.
   generalize dependent t.
@@ -582,6 +742,7 @@ Proof.
   generalize dependent pt.
   generalize dependent p.
   generalize dependent s.*)
+  generalize dependent env.
   induction sub; intros.
    simpl.
    assert (penv = []). destruct penv; subst; auto. simpl in H2. rewrite <- H2 in H1. simpl in H1. omega.
@@ -590,6 +751,12 @@ Proof.
 
   simpl.
   eapply substitution.
+  destruct penv.
+   simpl in H1. rewrite <- H1 in H2. inversion H2.
+
+
+  eapply IHsub.
+  
  (*TODO need to track types of substitution *)
 
 
