@@ -258,3 +258,17 @@ Proof.
  apply X1. omega.
 Qed.
   
+
+
+
+Lemma raise_cases inc vi v P:
+      (v >= vi -> P (inc+v)) ->
+      (v <  vi -> P (v))     ->
+      P (raise' inc vi v).
+Proof.
+ intros.
+ unfold raise'.
+ destruct (ge_dec v vi); auto.
+  apply X0. omega.
+Qed.
+

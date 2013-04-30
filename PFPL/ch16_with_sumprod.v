@@ -2,6 +2,7 @@
 
 Require Import Env.
 Require Import TransitiveClosure.
+Require Import Tactics.
 
 Inductive Ty :=
         | t_arr  : Ty -> Ty -> Ty
@@ -10,6 +11,7 @@ Inductive Ty :=
         | t_prod : Ty -> Ty -> Ty
         | t_fix  : Ty -> Ty
         | t_var  : Var -> Ty.
+Hint Constructors Ty.
 
 Inductive Exp :=
         | var    : Var -> Exp
@@ -28,7 +30,7 @@ Inductive Exp :=
         | case   : Exp -> Exp -> Exp -> Exp
         | fst    : Exp -> Exp
         | snd    : Exp -> Exp.
-
+Hint Constructors Exp.
 
 Definition TTEnv := Env unit.
 Definition TEnv := Env Ty.
@@ -145,6 +147,7 @@ Inductive TYPE (env : TEnv) : Exp -> Ty -> Prop :=
  | ty_snd e t1 t2
    : TYPE env e      (t_prod t1 t2)
   -> TYPE env (snd e) t2.
+Hint Constructors TYPE.
 
 Lemma unicity
 	(env: TEnv) (e : Exp) (t1 t2 : Ty)
@@ -152,28 +155,8 @@ Lemma unicity
 	(Ht2 : TYPE env e t2)
 	: t1 = t2.
 Proof.
-  revert t2 Ht2.
-  induction Ht1; intros; inversion Ht2; subst; try congruence.
-  
-  apply IHHt1 in H2. congruence.
-
-  apply IHHt1_1 in H2. congruence.
-
-  apply IHHt1 in H1. congruence.
-  apply IHHt1 in H2. congruence.
-  apply IHHt1 in H2. congruence.
-  apply IHHt1_1 in H1.
-  apply IHHt1_2 in H3. congruence.
-
-  apply IHHt1_1 in H2.
-  replace t1 with t3 in * by congruence.
-  replace t2 with t4 in * by congruence.
-  apply IHHt1_2 in H4.
-  apply IHHt1_3 in H5.
-  congruence.
-
-  apply IHHt1 in H0. congruence.
-  apply IHHt1 in H0. congruence.
+ revert t2 Ht2.
+ induct_invert Ht1 Ht2; appall; eqall; auto; congruence.
 Qed.
 
 
@@ -201,22 +184,16 @@ Lemma raise_0_id (e : Exp) (n : nat) :
 	raise e 0 n = e.
 Proof.
  revert n.
- induction e; intros; simpl; try (rewrite IHe1, IHe2); try rewrite IHe; try rewrite IHe3; try reflexivity.
- unfold raise, raise'.
- destruct (ge_dec v n); auto.
+ induction e; intros; simpl; screw; auto;
+  apply raise_cases; auto.
 Qed.
 
 Lemma raise_S (e : Exp) (a b : nat) :
 	raise e (S a) b = raise (raise e a b) 1 b.
 Proof.
  revert a b.
- induction e; intros; simpl; try (rewrite IHe1, IHe2); try rewrite IHe; try rewrite IHe3; try reflexivity.
- unfold raise, raise'.
- destruct (ge_dec v b); auto.
- destruct (ge_dec (a+v) b); auto.
-  omega.
- destruct (ge_dec v b); auto.
-  omega. 
+ induction e; intros; simpl; screw; auto;
+  repeat (apply raise_cases); auto; omega.
 Qed.
 
 
@@ -242,21 +219,17 @@ Fixpoint subst (e e' : Exp) (v : Var) :=
  end.
 
 
-
 Lemma weakening_insert
         (env : TEnv) (e : Exp) (te tvi : Ty) (vi : Var) :
         TYPE env e te ->
         TYPE (insert env vi tvi) (raise e 1 vi) te.
  intros Hte.
  revert vi tvi.
- induction Hte; intros; try solve [econstructor; try rewrite <- uninsert; eauto]; simpl.
+ induction Hte; intros; try solve [econstructor; try rewrite <- uninsert; eauto].
 
- apply ty_env.
-  unfold raise'.
-   destruct (ge_dec v vi).
-   apply get_insert_ge; assumption.
-   apply get_insert_lt; try assumption; omega.
-  assumption.
+ apply ty_env; try apply raise_cases;
+   try apply get_insert_ge;
+   try apply get_insert_lt; auto; omega.
 Qed.
 
 Lemma weakening_cons
@@ -280,43 +253,24 @@ Proof.
  intros He' He Hlen.
  remember (insert env x t) as ENV.
  revert e x t env HeqENV He Hlen.
- induction He'; intros; subst; simpl; try constructor; try assumption;
-  try solve [eapply IHHe'; eauto].
+ induction He'; intros; screw;
+  try (econstructor; eauto; eapply IHHe'); eauto;
+  try reflexivity;
+  try eapply weakening_cons; eauto; simpl; try omega.
+
   apply subst_cases; intros; subst.
-   eapply InEnv_insert in H. rewrite <- H. assumption.
-   apply insert_minus in H; try apply ty_env; try assumption; try omega.
-   apply insert_pre in H; try apply ty_env; try assumption; try omega.
-
- eapply IHHe'; eauto; try reflexivity.
-  apply weakening_cons; assumption.
-  simpl; omega.
-
- eapply ty_app.
-  eapply IHHe'1; auto.
-  eapply IHHe'2; auto.
-  assumption.
-
- eapply IHHe'; simpl; try omega; try reflexivity.
-  apply weakening_cons.
-  assumption.
-
- eapply IHHe'1; auto.
- eapply IHHe'2; auto.
+   apply InEnv_insert in H; subst; auto.
+   apply insert_minus in H; auto.
+   apply insert_pre in H; auto.
 
  eapply ty_case; eauto.
-  eapply IHHe'2.
-   reflexivity.
-   apply weakening_cons; auto.
-   simpl. omega.
-  eapply IHHe'3.
-   reflexivity.
-   apply weakening_cons; auto.
-   simpl. omega.
-
- eapply ty_fst.
-  eapply IHHe'; auto.
- econstructor;
-  eapply IHHe'; auto.
+  eapply IHHe'2;
+   try reflexivity;
+   try apply weakening_cons; auto; simpl; omega.
+  eapply IHHe'3;
+   try reflexivity;
+   try apply weakening_cons;
+   auto; simpl; omega.
 Qed.
 
 
@@ -348,6 +302,7 @@ Inductive val : Exp -> Prop :=
    : val x
   -> val y
   -> val (prod x y).
+Hint Constructors val.
 
 Inductive e_step: Exp -> Exp -> Prop :=
  | e_ap1 e1 e1' e2
@@ -414,7 +369,7 @@ Inductive e_step: Exp -> Exp -> Prop :=
  | e_sndP e1 e2
    : val (prod e1 e2)
   -> e_step (snd (prod e1 e2)) e2.
-
+Hint Constructors e_step.
 
 Theorem preservation env e e' t:
         TYPE env e t ->
@@ -423,22 +378,12 @@ Theorem preservation env e e' t:
 Proof.
  intros Ht He.
  revert env t Ht.
- induction He; intros; inversion Ht; subst;
-   try solve [try econstructor; try eapply IHHe; eassumption];
-   try (eapply substitution; eassumption).
-  inversion H2. subst.
-  eapply substitution; eassumption.
-  inversion H1; subst; assumption.
-
-  eapply substitution. eassumption.
-   inversion H2; auto.
-  eapply substitution. eassumption.
-   inversion H2; auto.
-
-  inversion H1; auto.
-  inversion H1; auto.
+ induct_invert He Ht;
+   try solve [econstructor; try eapply IHHe; eauto];
+   try (eapply substitution); eauto;
+   try (inversion H1; subst; assumption);
+   try (inversion H2; subst; assumption).
 Qed.
-
 
 
 Theorem progress e t:
@@ -448,70 +393,11 @@ Proof.
  remember [] as ENV.
  intros Ht.
  induction Ht; subst;
-  try solve [apply not_InEnv_nil in H; destruct H];
-  try solve [left; econstructor; eassumption].
-
- destruct IHHt1; try reflexivity.
- destruct IHHt2; try reflexivity.
- inversion H0; subst; inversion Ht1; subst.
- right.
-  eexists. apply e_lam. assumption.
- destruct H1.
- right.
-  eexists. apply e_ap2; eassumption.
- 
- destruct H0.
- right.
-  eexists. apply e_ap1; eassumption.
-
- right. eexists. eapply e_fixx.
-
- destruct IHHt; try reflexivity.
-  left. constructor. assumption.
-  destruct H0.
-   right. eexists. constructor. eassumption.
-
- destruct IHHt; auto.
-  inversion H0; subst; inversion Ht; subst.
-  right. eexists. apply e_unfoldF. assumption.
-
-  destruct H0.
-  right. eexists. apply e_unfold1. eassumption.
-
- destruct IHHt; auto.
-  left; constructor; assumption.
-  destruct H.
-   right; eexists; econstructor; eauto.
-
- destruct IHHt; auto.
-  left; constructor; assumption.
-  destruct H.
-   right; eexists; econstructor; eauto.
-
- destruct IHHt1; auto.
- destruct IHHt2; auto.
-  left; constructor; auto.
-  destruct H0.
-  right. eexists. apply e_prod2; eauto.
- destruct H.
-  right. eexists. apply e_prod1; eauto.
-
- destruct IHHt1; auto; right.
-  inversion H; subst; inversion Ht1; subst.
-   eexists. apply e_caseL.
-   eexists. apply e_caseR.
-  destruct H.
-   eexists. apply e_case. eassumption.
-
- destruct IHHt; auto; right.
-  inversion H; subst; inversion Ht; subst.
-   eexists; apply e_fstP; auto.
-  destruct H.
-   eexists; apply e_fst; eauto.
- 
- destruct IHHt; auto; right.
-  inversion H; subst; inversion Ht; subst.
-   eexists; apply e_sndP; auto.
-  destruct H.
-   eexists; apply e_snd; eauto.
+  refl_ap;
+  smash;
+  try solve [exfalso; eapply not_InEnv_nil; eauto];
+  try solve [left; econstructor; eauto];
+  try solve [invertlike val; invertlike TYPE; eauto];
+  eauto.
 Qed.
+
