@@ -35,7 +35,6 @@ Hint Constructors Exp.
 Definition TTEnv := Env unit.
 Definition TEnv := Env Ty.
 
-
 Fixpoint raiseT (e : Ty) (a b : nat) :=
  match e with
  | t_var v     => t_var  (raise' a b v)
@@ -184,7 +183,8 @@ Lemma raise_0_id (e : Exp) (n : nat) :
 	raise e 0 n = e.
 Proof.
  revert n.
- induction e; intros; simpl; screw; auto;
+ induction e;
+  intros; simpl; screw; auto;
   apply raise_cases; auto.
 Qed.
 
@@ -400,4 +400,3 @@ Proof.
   try solve [invertlike val; invertlike TYPE; eauto];
   eauto.
 Qed.
-

@@ -102,3 +102,18 @@ Ltac invertlike f :=
  | [ H : f ?a ?b ?c |- _ ]
    => inversion H; subst
  end.
+
+(* induction with memory *)
+(* doesn't work... *)
+Ltac inducts X :=
+ match goal with
+ | [ X : ?P ?a ?b ?c ?d |- _ ]
+  => remember a; remember b; remember c; remember d
+ | [ X : ?P ?a ?b ?c |- _ ]
+  => remember a; remember b; remember c
+ | [ X : ?P ?a ?b |- _ ]
+  => remember a; remember b
+ | [ X : ?P ?a |- _ ]
+  => remember a
+ end; induction X; subst.
+
