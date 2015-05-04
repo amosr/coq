@@ -10,12 +10,29 @@ Inductive Move : Type :=
  | Forward
  | Stay.
 
+Definition Stream1 (a b : Type)
+ := option a -> (Move * option b) + unit.
+
+Definition Map (A B : Type) (f : A -> B) : Stream1 A B
+ := fun a =>
+    match a with
+    | Some a => inl (Forward, Some (f a))
+    | None   => inr tt
+    end.
+
+Definition Filter (A : Type) (f : A -> bool) : Stream1 A A
+ := fun a =>
+    match a with
+    | Some a => inl (Forward, if f a then Some a else None)
+    | None   => inr tt
+    end.
+
 (* Let's only handle stateless merges for now *)
-Definition Merge (a b c : Set)
+Definition Stream2 (a b c : Type)
  := option a -> option b -> (Move * Move * option c) + unit.
 
 
-Definition Zip (A B : Set) : Merge A B (A*B)
+Definition Zip (A B : Type) : Stream2 A B (A*B)
  := fun a b =>
     match (a,b) with
     | (Some a, Some b) => inl (Forward, Forward, Some (a,b))
@@ -26,7 +43,7 @@ Definition Zip (A B : Set) : Merge A B (A*B)
 Search ({?a <= ?b} + {?a > ?b}).
 
 (* Just a merge, really *)
-Definition SegmentedAppend (A : Set) : Merge (nat*A) (nat*A) (nat*A)
+Definition MergeJoin (A : Type) : Stream2 (nat*A) (nat*A) (nat*A)
  := fun a b =>
     match (a,b) with
     | (Some (ia,a), Some (ib, b))
